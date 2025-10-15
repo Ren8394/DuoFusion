@@ -1,0 +1,17 @@
+[project]
+name = "duofusion"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "cmapy>=0.6.6",
+    "crcmod>=1.7",
+    "gpiod>=2.3.0",
+    "matplotlib>=3.10.7",
+    "numpy>=2.3.3",
+    "opencv-python>=4.11.0.86",
+    "pyserial>=3.5",
+    "smbus>=1.1.post2",
+]
+
