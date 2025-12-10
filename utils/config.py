@@ -26,7 +26,7 @@ VERSION = "1.0"
 # ============================================================================
 # RGB 相機解析度 (RGB camera resolution)
 # 修改說明: Camera Module 3 支援多種解析度，這是優化過的設定
-RGB_RESOLUTION = (800, 600)
+RGB_RESOLUTION = (1080, 600)
 
 # 熱影像相機解析度 (Thermal camera resolution)
 # 修改說明: MI0801/MI0802 感測器固定解析度，不建議修改
@@ -146,7 +146,7 @@ SYNC_FAIR = 20.0       # 10-20 ms: 普通
 #   - 1.0: 黑體輻射（大部分物體）
 #   - 0.95: 人體皮膚
 #   - 0.3-0.5: 金屬表面
-DEFAULT_EMISSIVITY = 0.95
+DEFAULT_EMISSIVITY = 0.98
 
 # 濾波器設定 (Filter settings)
 # 修改說明:

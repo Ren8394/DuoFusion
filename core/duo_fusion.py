@@ -304,9 +304,10 @@ class DuoFusion:
         import select
 
         self.terminal.set_raw_mode()
+        should_continue = True
 
         try:
-            while True:
+            while should_continue:
                 # 非阻塞檢查輸入
                 if select.select([sys.stdin], [], [], 0.5)[0]:
                     chars = []
@@ -337,9 +338,12 @@ class DuoFusion:
                             self.terminal.restore()
                             print("\n正在退出程式...")
                             if self.recorder.is_recording:
-                                self.stop_recording()
+                                self.recorder.is_recording = False  # 立即停止錄製
+                                if self.recorder.recording_thread and self.recorder.recording_thread.is_alive():
+                                    self.recorder.recording_thread.join(timeout=2.0)  # 最多等待2秒
                             self.cleanup()
-                            return False
+                            should_continue = False
+                            break
 
                         # s: 顯示狀態
                         elif char_code_str.lower() == 's':
@@ -374,8 +378,7 @@ class DuoFusion:
             self.terminal.restore()
             raise
 
-        finally:
-            return True
+        return should_continue
 
     def cleanup(self) -> None:
         """

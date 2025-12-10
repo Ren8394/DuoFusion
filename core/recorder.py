@@ -120,10 +120,10 @@ class Recorder:
 
         清理流程 (Cleanup Flow):
             1. capture_executor: 不等待，立即關閉
-            2. save_executor: 等待所有儲存任務完成
+            2. save_executor: 不等待，立即關閉
 
         原因 (Reason):
-            確保所有資料都儲存完畢，但不等待可能卡住的擷取任務
+            快速退出時不等待儲存任務，避免程式卡住
 
         修改說明 (Modification Guide):
             如需改變等待策略，調整 shutdown(wait=?) 參數
@@ -132,7 +132,7 @@ class Recorder:
             if self.capture_executor:
                 self.capture_executor.shutdown(wait=False)
             if self.save_executor:
-                self.save_executor.shutdown(wait=True)
+                self.save_executor.shutdown(wait=False)
             print("✓ 執行緒池已關閉")
         except Exception as e:
             print(f"執行緒池關閉失敗: {e}")
@@ -214,7 +214,7 @@ class Recorder:
         if self.recording_thread and self.recording_thread.is_alive():
             self.recording_thread.join()
 
-        print("\n等待儲存任務完成...")
+        print("錄製已停止。")
 
     def _recording_loop(
         self,
