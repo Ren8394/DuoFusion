@@ -18,24 +18,38 @@
 
 ## Quick Start
 
-### 1. Install Dependencies
+### 1. Environment Setup
+```bash
+# Use uv Python 3.13
+uv python pin 3.13
+
+# Download pysenxor-master
+# Download from: https://files.waveshare.com/wiki/common/Thermal_Camera_Hat.zip
+```
+
+### 2. Install Dependencies
 ```bash
 # Install system packages
 sudo apt update
 sudo apt install python3-picamera2 python3-gpiozero python3-spidev
 
-# Install Python packages
-pip install numpy pillow matplotlib
+# Install Python packages with uv
+uv add cmapy crcmod gpiod pyserial smbus matplotlib numpy opencv-python
+
+# Install pysenxor (use 'from senxor import ...')
+uv pip install -e ./pysenxor-master
 ```
 
-### 2. Connect Hardware
+**Note for Raspberry Pi:** To use system-installed packages like picamera2 in uv's venv, set `include-system-site-packages = true` in `.venv/pyvenv.cfg`, or create venv with: `uv venv --system-site-packages`
+
+### 3. Connect Hardware
 1. Install Camera Module 3 to CSI interface
 2. Connect Thermal HAT to GPIO
 3. Enable SPI and I2C: `sudo raspi-config`
 
-### 3. Run Program
+### 4. Run Program
 ```bash
-python main.py
+uv run python main.py
 ```
 
 ## Usage Instructions
