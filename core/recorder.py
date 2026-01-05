@@ -18,6 +18,7 @@
     - 如需調整時序精度，修改 config.py 中的時序參數
 """
 
+import asyncio
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from collections import deque
@@ -25,8 +26,10 @@ from typing import Optional, Callable
 from datetime import datetime
 
 from utils.config import (
-    FRAME_TOLERANCE, TIMESTAMP_BATCH_SIZE,
-    CAPTURE_WORKERS, SAVE_WORKERS
+    FRAME_TOLERANCE,
+    TIMESTAMP_BATCH_SIZE,
+    CAPTURE_WORKERS,
+    SAVE_WORKERS,
 )
 from utils.timing import get_precise_timestamp, precise_sleep, calculate_fps_interval
 from core.timestamp_buffer import TimestampBuffer
@@ -90,37 +93,60 @@ class Recorder:
         self.capture_executor: Optional[ThreadPoolExecutor] = None
         self.save_executor: Optional[ThreadPoolExecutor] = None
 
+        # AsyncIO 相關
+        self.async_loop: Optional[asyncio.AbstractEventLoop] = None
+        self.async_thread: Optional[threading.Thread] = None
+
     def init_thread_pools(self) -> None:
         """
-        初始化執行緒池
+        初始化執行緒池和非同步事件迴圈
 
         執行緒配置 (Thread Configuration):
             - capture_executor: 2 workers（RGB + Thermal 並行擷取）
             - save_executor: 2 workers（RGB + Thermal 並行儲存）
+            - async_loop: 非同步事件迴圈用於I/O操作
 
         用途 (Purpose):
-            平行處理以提升效能
+            平行處理以提升效能，使用asyncio優化I/O操作
 
         修改說明 (Modification Guide):
             如需調整執行緒數量，修改 config.CAPTURE_WORKERS 和 config.SAVE_WORKERS
         """
         self.capture_executor = ThreadPoolExecutor(
-            max_workers=CAPTURE_WORKERS,
-            thread_name_prefix="capture"
+            max_workers=CAPTURE_WORKERS, thread_name_prefix="capture"
         )
         self.save_executor = ThreadPoolExecutor(
-            max_workers=SAVE_WORKERS,
-            thread_name_prefix="save"
+            max_workers=SAVE_WORKERS, thread_name_prefix="save"
         )
-        print("✓ 執行緒池初始化完成")
+
+        # 初始化非同步事件迴圈
+        self.async_loop = asyncio.new_event_loop()
+        self.async_thread = threading.Thread(
+            target=self._run_async_loop, daemon=True, name="async-io"
+        )
+        self.async_thread.start()
+
+        print("✓ 執行緒池和非同步事件迴圈初始化完成")
+
+    def _run_async_loop(self) -> None:
+        """
+        運行非同步事件迴圈（在獨立執行緒中）
+
+        用途 (Purpose):
+            處理非同步I/O操作，不阻塞主錄製執行緒
+        """
+        asyncio.set_event_loop(self.async_loop)
+        self.async_loop.run_forever()
 
     def cleanup_thread_pools(self) -> None:
         """
-        清理執行緒池
+        清理執行緒池和非同步資源
 
         清理流程 (Cleanup Flow):
             1. capture_executor: 不等待，立即關閉
             2. save_executor: 不等待，立即關閉
+            3. async_loop: 停止事件迴圈
+            4. async_thread: 等待執行緒結束
 
         原因 (Reason):
             快速退出時不等待儲存任務，避免程式卡住
@@ -133,16 +159,23 @@ class Recorder:
                 self.capture_executor.shutdown(wait=False)
             if self.save_executor:
                 self.save_executor.shutdown(wait=False)
-            print("✓ 執行緒池已關閉")
+
+            # 清理非同步資源
+            if self.async_loop and not self.async_loop.is_closed():
+                self.async_loop.stop()
+            if self.async_thread and self.async_thread.is_alive():
+                self.async_thread.join(timeout=1.0)
+
+            print("✓ 執行緒池和非同步資源已關閉")
         except Exception as e:
-            print(f"執行緒池關閉失敗: {e}")
+            print(f"資源清理失敗: {e}")
 
     def start_recording(
         self,
         session_path: str,
         capture_callback: Callable,
         save_callback: Callable,
-        timestamp_path: str
+        timestamp_path: str,
     ) -> bool:
         """
         開始錄製
@@ -183,7 +216,7 @@ class Recorder:
             # 建立並啟動錄製執行緒
             self.recording_thread = threading.Thread(
                 target=self._recording_loop,
-                args=(session_path, capture_callback, save_callback, timestamp_path)
+                args=(session_path, capture_callback, save_callback, timestamp_path),
             )
             self.recording_thread.start()
 
@@ -221,7 +254,7 @@ class Recorder:
         session_path: str,
         capture_callback: Callable,
         save_callback: Callable,
-        timestamp_path: str
+        timestamp_path: str,
     ) -> None:
         """
         錄製迴圈（在獨立執行緒中運行）
@@ -273,12 +306,15 @@ class Recorder:
         # 時間戳記緩衝器
         timestamp_buffer = TimestampBuffer(batch_size=TIMESTAMP_BATCH_SIZE)
 
-        print(f"\n開始錄製迴圈 (間隔: {frame_interval_seconds*1000:.1f}ms)")
+        tolerance_ms = frame_interval_seconds * 1000 * self.frame_tolerance
+        print(f"\n開始錄製迴圈 (間隔: {frame_interval_seconds*1000:.1f}ms，可允許誤差: {tolerance_ms:.1f}ms)")
 
         try:
             while self.is_recording:
                 # 計算此幀的目標時間
-                target_time_ns = recording_start_ns + (self.expected_frame_count * frame_interval_ns)
+                target_time_ns = recording_start_ns + (
+                    self.expected_frame_count * frame_interval_ns
+                )
                 current_time_ns = get_precise_timestamp()
                 wait_time_ns = target_time_ns - current_time_ns
 
@@ -297,8 +333,10 @@ class Recorder:
 
                 # 並行擷取雙相機
                 try:
-                    rgb_future = self.capture_executor.submit(capture_callback, 'rgb')
-                    thermal_future = self.capture_executor.submit(capture_callback, 'thermal')
+                    rgb_future = self.capture_executor.submit(capture_callback, "rgb")
+                    thermal_future = self.capture_executor.submit(
+                        capture_callback, "thermal"
+                    )
 
                     rgb_result = rgb_future.result(timeout=5.0)
                     thermal_result = thermal_future.result(timeout=5.0)
@@ -332,28 +370,29 @@ class Recorder:
                 self.frame_count += 1
                 self.expected_frame_count += 1
 
-                # 並行儲存
-                self.save_executor.submit(
-                    save_callback,
-                    rgb_array, thermal_data,
-                    session_path, frame_idx
-                )
-
-                # 記錄時間戳記
+                # 準備時間戳記資料
                 timestamp_data = {
-                    'frame_idx': frame_idx,
-                    'expected_frame_idx': self.expected_frame_count - 1,
-                    'target_time_ns': target_time_ns,
-                    'timing_error_ms': timing_error_ms,
-                    'sync_diff_ms': sync_info['sync_diff_ms']
+                    "frame_idx": frame_idx,
+                    "expected_frame_idx": self.expected_frame_count - 1,
+                    "target_time_ns": target_time_ns,
+                    "timing_error_ms": timing_error_ms,
+                    "sync_diff_ms": sync_info["sync_diff_ms"],
                 }
                 timestamp_buffer.add_timestamp(timestamp_data)
 
-                # 批次寫入時間戳記
+                # 非同步儲存
+                asyncio.run_coroutine_threadsafe(
+                    self._save_frame_async(
+                        save_callback, rgb_array, thermal_data, session_path, frame_idx
+                    ),
+                    self.async_loop,
+                )
+
+                # 批次寫入時間戳記（在非同步任務中處理）
                 if timestamp_buffer.should_flush():
-                    self.save_executor.submit(
-                        timestamp_buffer.flush_to_file,
-                        timestamp_path
+                    asyncio.run_coroutine_threadsafe(
+                        self._flush_timestamps_async(timestamp_buffer, timestamp_path),
+                        self.async_loop,
                     )
 
         except Exception as e:
@@ -394,8 +433,8 @@ class Recorder:
             如需調整品質閾值（目前 10ms），修改此函數中的判斷邏輯
         """
         # 轉換為秒
-        rgb_start = rgb_timing['start_ns'] / 1e9
-        thermal_start = thermal_timing['start_ns'] / 1e9
+        rgb_start = rgb_timing["start_ns"] / 1e9
+        thermal_start = thermal_timing["start_ns"] / 1e9
 
         # 計算差異（毫秒）
         sync_diff_ms = abs(rgb_start - thermal_start) * 1000
@@ -404,12 +443,44 @@ class Recorder:
         self.sync_history.append(sync_diff_ms)
 
         # 品質評級
-        sync_quality = 'good' if sync_diff_ms < 10 else 'poor'
+        sync_quality = "good" if sync_diff_ms < 10 else "poor"
 
-        return {
-            'sync_diff_ms': sync_diff_ms,
-            'sync_quality': sync_quality
-        }
+        return {"sync_diff_ms": sync_diff_ms, "sync_quality": sync_quality}
+
+    async def _save_frame_async(
+        self, save_callback, rgb_array, thermal_data, session_path, frame_idx
+    ):
+        """
+        非同步儲存幀資料
+
+        參數 (Args):
+            save_callback: 儲存回呼函數
+            rgb_array: RGB影像陣列
+            thermal_data: 熱影像資料
+            session_path: 階段路徑
+            frame_idx: 幀索引
+        """
+        # 並行儲存RGB和Thermal
+        await self.async_loop.run_in_executor(
+            self.save_executor,
+            save_callback,
+            rgb_array,
+            thermal_data,
+            session_path,
+            frame_idx,
+        )
+
+    async def _flush_timestamps_async(self, timestamp_buffer, timestamp_path):
+        """
+        非同步批次寫入時間戳記
+
+        參數 (Args):
+            timestamp_buffer: 時間戳記緩衝器
+            timestamp_path: 時間戳記檔案路徑
+        """
+        await self.async_loop.run_in_executor(
+            self.save_executor, timestamp_buffer.flush_to_file, timestamp_path
+        )
 
     def get_stats(self) -> dict:
         """
@@ -432,13 +503,13 @@ class Recorder:
             如需添加新的統計項目，在此函數中添加
         """
         return {
-            'frame_count': self.frame_count,
-            'expected_frame_count': self.expected_frame_count,
-            'dropped_frames': self.dropped_frames,
-            'late_frames': self.late_frames,
-            'fps': self.fps,
-            'sync_history': list(self.sync_history),
-            'timing_errors': list(self.timing_errors)
+            "frame_count": self.frame_count,
+            "expected_frame_count": self.expected_frame_count,
+            "dropped_frames": self.dropped_frames,
+            "late_frames": self.late_frames,
+            "fps": self.fps,
+            "sync_history": list(self.sync_history),
+            "timing_errors": list(self.timing_errors),
         }
 
     def set_fps(self, fps: int) -> None:

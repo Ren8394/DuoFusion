@@ -26,7 +26,7 @@ VERSION = "1.0"
 # ============================================================================
 # RGB 相機解析度 (RGB camera resolution)
 # 修改說明: Camera Module 3 支援多種解析度，這是優化過的設定
-RGB_RESOLUTION = (1080, 600)
+RGB_RESOLUTION = (720, 1080)
 
 # 熱影像相機解析度 (Thermal camera resolution)
 # 修改說明: MI0801/MI0802 感測器固定解析度，不建議修改
@@ -37,7 +37,7 @@ THERMAL_RESOLUTION = (80, 62)
 #   - 範圍: 1-25 FPS
 #   - 實際上限受熱影像相機限制 (~25.5 FPS)
 #   - 較高 FPS 需要更快的儲存速度
-DEFAULT_FPS = 8
+DEFAULT_FPS = 12
 
 # ============================================================================
 # 硬體通訊參數 (Hardware Communication Parameters)
@@ -155,7 +155,7 @@ DEFAULT_EMISSIVITY = 0.98
 #   - ENABLE_FILTER_F3: 中值濾波器（去除突波）
 ENABLE_FILTER_F1 = True
 ENABLE_FILTER_F2 = True
-ENABLE_FILTER_F3 = True
+ENABLE_FILTER_F3 = False
 
 # 溫度偏移校正 (Temperature offset correction in Kelvin)
 # 修改說明:
