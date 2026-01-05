@@ -1,89 +1,89 @@
 # DuoFusion
 
-**雙相機錄製系統** - Raspberry Pi 上的高精度同步錄製解決方案
+**Dual Camera Recording System** - High-precision synchronised recording solution for Raspberry Pi
 
-## 功能特色
+## Features
 
-- 🎥 **雙相機同步**: RGB Camera Module 3 + Thermal-90 Camera HAT
-- ⚡ **高性能**: RAM disk 優化，精確時序控制
-- 📊 **完整資料**: 時間戳記追蹤，統計分析
-- 🛠️ **易於使用**: 簡單的命令行介面
+- 🎥 **Dual Camera Synchronisation**: RGB Camera Module 3 + Thermal-90 Camera HAT
+- ⚡ **High Performance**: RAM disk optimisation, precise timing control
+- 📊 **Complete Data**: Timestamp tracking, statistical analysis
+- 🛠️ **Easy to Use**: Simple command-line interface
 
-## 硬體需求
+## Hardware Requirements
 
-- Raspberry Pi 4 或 5
+- Raspberry Pi 4 or 5
 - Raspberry Pi Camera Module 3
 - Thermal-90 Camera HAT with MI48
-- MicroSD 卡 (32GB+)
+- MicroSD card (32GB+)
 
-## 快速開始
+## Quick Start
 
-### 1. 安裝依賴
+### 1. Install Dependencies
 ```bash
-# 安裝系統套件
+# Install system packages
 sudo apt update
 sudo apt install python3-picamera2 python3-gpiozero python3-spidev
 
-# 安裝 Python 套件
+# Install Python packages
 pip install numpy pillow matplotlib
 ```
 
-### 2. 連接硬體
-1. 安裝 Camera Module 3 到 CSI 介面
-2. 連接 Thermal HAT 到 GPIO
-3. 啟用 SPI 和 I2C: `sudo raspi-config`
+### 2. Connect Hardware
+1. Install Camera Module 3 to CSI interface
+2. Connect Thermal HAT to GPIO
+3. Enable SPI and I2C: `sudo raspi-config`
 
-### 3. 執行程式
+### 3. Run Program
 ```bash
 python main.py
 ```
 
-## 使用說明
+## Usage Instructions
 
-1. 啟動程式後，設定 FPS 和儲存路徑
-2. 按 `Enter` 開始錄製
-3. 再次按 `Enter` 停止錄製
-4. 按 `q` 退出程式
+1. After starting the program, set FPS and save path
+2. Press `Enter` to start recording
+3. Press `Enter` again to stop recording
+4. Press `q` to exit program
 
-## 錄製結果
+## Recording Results
 
-資料會儲存在 `records/` 資料夾中：
+Data will be saved in the `records/` folder:
 ```
 records/
 └── 20241021_143022/
-    ├── RGB/          # JPEG 影像
-    ├── Thermal/      # NPY 資料
+    ├── RGB/          # JPEG images
+    ├── Thermal/      # NPY data
     ├── timestamps.txt
     └── session_info.txt
 ```
 
-## 配置選項
+## Configuration Options
 
-編輯 `utils/config.py` 修改設定：
+Edit `utils/config.py` to modify settings:
 
 ```python
-DEFAULT_FPS = 12          # 幀率 (1-25)
-JPEG_QUALITY = 60         # 影像品質 (0-100)
-SPI_SPEED = 31200000      # SPI 速度
+DEFAULT_FPS = 12          # Frame rate (1-25)
+JPEG_QUALITY = 60         # Image quality (0-100)
+SPI_SPEED = 31200000      # SPI speed
 ```
 
-## 常見問題
+## Common Issues
 
-### 相機初始化失敗
-- 檢查 Camera Module 連接
-- 確認 Thermal HAT GPIO 連接
-- 驗證 SPI/I2C 已啟用
+### Camera Initialisation Failed
+- Check Camera Module connection
+- Confirm Thermal HAT GPIO connection
+- Verify SPI/I2C are enabled
 
-### 錄製時卡頓
-- 降低 FPS
-- 使用 SSD 儲存
-- 檢查系統資源使用
+### Stuttering During Recording
+- Reduce FPS
+- Use SSD storage
+- Check system resource usage
 
-### 儲存空間不足
-- 降低 JPEG_QUALITY
-- 使用外部硬碟
-- 清理舊錄製資料
+### Insufficient Storage Space
+- Reduce JPEG_QUALITY
+- Use external hard drive
+- Clean up old recording data
 
-## 授權
+## Licence
 
-MIT License
+MIT Licence
