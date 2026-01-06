@@ -26,7 +26,7 @@ VERSION = "1.0"
 # ============================================================================
 # RGB 相機解析度 (RGB camera resolution)
 # 修改說明: Camera Module 3 支援多種解析度，這是優化過的設定
-RGB_RESOLUTION = (720, 1080)
+RGB_RESOLUTION = (640, 640)
 
 # 熱影像相機解析度 (Thermal camera resolution)
 # 修改說明: MI0801/MI0802 感測器固定解析度，不建議修改
